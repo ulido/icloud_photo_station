@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 import click
-import os
 import sys
 import socket
 import requests
 import time
 from tqdm import tqdm
 from dateutil.parser import parse
+from storage.filesystem import FileSystemStorage
 import pyicloud
 
 # For retrying connection after timeouts and errors
@@ -49,7 +49,7 @@ def download(directory, username, password, size, recent, \
     download_videos, force_size, auto_delete):
     """Download all iCloud photos to a local directory"""
 
-    directory = directory.rstrip('/')
+    directory = FileSystemStorage(directory)
 
     icloud = authenticate(username, password)
     updatePhotos(icloud)
@@ -88,12 +88,10 @@ def download(directory, username, password, size, recent, \
                     continue
 
                 date_path = '{:%Y/%m/%d}'.format(created_date)
-                download_dir = '/'.join((directory, date_path))
 
-                if not os.path.exists(download_dir):
-                    os.makedirs(download_dir)
+                album = directory.album(date_path, create=True)
 
-                download_photo(photo, size, force_size, download_dir, progress_bar)
+                download_photo(photo, size, force_size, album, progress_bar)
                 break
 
             except (requests.exceptions.ConnectionError, socket.timeout):
@@ -113,15 +111,11 @@ def download(directory, username, password, size, recent, \
         for media in recently_deleted:
             created_date = parse(media.created)
             date_path = '{:%Y/%m/%d}'.format(created_date)
-            download_dir = '/'.join((directory, date_path))
 
+            album = directory.album(date_path, create=False)
+            if album:
             filename = filename_with_size(media, size)
-            path = '/'.join((download_dir, filename))
-
-            if os.path.exists(path):
-                print "Deleting %s!" % path
-                os.remove(path)
-
+            album.photo(filename).delete()
 
 def authenticate(username, password):
     print "Signing in..."
@@ -182,21 +176,22 @@ def filename_with_size(photo, size):
     return photo.filename.encode('utf-8') \
         .decode('ascii', 'ignore').replace('.', '-%s.' % size)
 
-def download_photo(photo, size, force_size, download_dir, progress_bar):
+def download_photo(photo, size, force_size, album, progress_bar):
     # Strip any non-ascii characters.
     filename = filename_with_size(photo, size)
-    download_path = '/'.join((download_dir, filename))
 
     truncated_filename = truncate_middle(filename, 24)
-    truncated_path = truncate_middle(download_path, 72)
+    truncated_path = truncate_middle(album.path, 72)
 
-    if os.path.isfile(download_path):
+    album_photo = album.photo(filename)
+
+    if album_photo.exists():
         progress_bar.set_description("%s already exists." % truncated_path)
         return
 
     # Fall back to original if requested size is not available
     if size not in photo.versions and not force_size and size != 'original':
-        download_photo(photo, 'original', True, download_dir, progress_bar)
+        download_photo(photo, 'original', True, album, progress_bar)
         return
 
     progress_bar.set_description("Downloading %s to %s" % (truncated_filename, truncated_path))
@@ -206,10 +201,7 @@ def download_photo(photo, size, force_size, download_dir, progress_bar):
             download_url = photo.download(size)
 
             if download_url:
-                with open(download_path, 'wb') as file:
-                    for chunk in download_url.iter_content(chunk_size=1024):
-                        if chunk:
-                            file.write(chunk)
+                album_photo.create(download_url)
                 break
 
             else:
