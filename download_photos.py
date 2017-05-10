@@ -173,6 +173,9 @@ def truncate_middle(s, n):
     return '{0}...{1}'.format(s[:n_1], s[-n_2:])
 
 def filename_with_size(photo, size):
+    if size == 'original':
+        return photo.filename.encode('utf-8')
+    else:
     return photo.filename.encode('utf-8') \
         .decode('ascii', 'ignore').replace('.', '-%s.' % size)
 
