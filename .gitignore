@@ -1,2 +1,3 @@
 cron_script.sh
+*.pyc
 Photos/
