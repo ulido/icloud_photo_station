@@ -43,11 +43,12 @@ class FileSystemPhoto(object):
     def exists(self):
         return os.path.isfile(self.path)
 
-    def create(self, url):
+    def create(self, url, mtime):
         with open(self.path, 'wb') as file:
             for chunk in url.iter_content(chunk_size=1024):
                 if chunk:
                     file.write(chunk)
+        os.utime(self.path, (mtime,mtime))
 
     def delete(self):
         if exists():

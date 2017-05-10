@@ -204,7 +204,7 @@ def download_photo(photo, size, force_size, album, progress_bar):
             download_url = photo.download(size)
 
             if download_url:
-                album_photo.create(download_url)
+                album_photo.create(download_url, photo.data.get('createdDate') / 1000.0)
                 break
 
             else:
