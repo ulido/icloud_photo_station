@@ -6,7 +6,7 @@ import requests
 import time
 from tqdm import tqdm
 from dateutil.parser import parse
-from storage.filesystem import FileSystemStorage
+from filesystem import FileSystemStorage
 from photostation import PhotoStationService
 import pyicloud
 
@@ -55,7 +55,7 @@ def download(directory, photostation, username, password, size, recent, \
     if photostation:
         directory = PhotoStationService(photostation, directory)
     else:
-    directory = FileSystemStorage(directory)
+        directory = FileSystemStorage(directory)
 
     icloud = authenticate(username, password)
     updatePhotos(icloud)
@@ -120,8 +120,8 @@ def download(directory, photostation, username, password, size, recent, \
 
             album = directory.album(date_path, create=False)
             if album:
-            filename = filename_with_size(media, size)
-            album.photo(filename).delete()
+                filename = filename_with_size(media, size)
+                album.photo(filename).delete()
 
 def authenticate(username, password):
     print "Signing in..."
@@ -182,8 +182,8 @@ def filename_with_size(photo, size):
     if size == 'original':
         return photo.filename.encode('utf-8')
     else:
-    return photo.filename.encode('utf-8') \
-        .decode('ascii', 'ignore').replace('.', '-%s.' % size)
+        return photo.filename.encode('utf-8') \
+            .decode('ascii', 'ignore').replace('.', '-%s.' % size)
 
 def download_photo(photo, size, force_size, album, progress_bar):
     # Strip any non-ascii characters.
