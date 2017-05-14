@@ -7,6 +7,7 @@ import time
 from tqdm import tqdm
 from dateutil.parser import parse
 from storage.filesystem import FileSystemStorage
+from photostation import PhotoStationService
 import pyicloud
 
 # For retrying connection after timeouts and errors
@@ -16,7 +17,9 @@ WAIT_SECONDS = 5
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 @click.command(context_settings=CONTEXT_SETTINGS, options_metavar='<options>')
-@click.argument('directory', type=click.Path(exists=True), metavar='<directory>')
+@click.argument('directory', type=click.Path(exists=False), metavar='<directory>')
+@click.option('--photostation',
+              help='URL to your PhotoStation webapi with access rights')
 @click.option('--username',
               help='Your iCloud username or email address',
               metavar='<username>',
@@ -45,10 +48,13 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
               is_flag=True)
 
 
-def download(directory, username, password, size, recent, \
+def download(directory, photostation, username, password, size, recent, \
     download_videos, force_size, auto_delete):
     """Download all iCloud photos to a local directory"""
 
+    if photostation:
+        directory = PhotoStationService(photostation, directory)
+    else:
     directory = FileSystemStorage(directory)
 
     icloud = authenticate(username, password)
@@ -186,9 +192,26 @@ def download_photo(photo, size, force_size, album, progress_bar):
     truncated_filename = truncate_middle(filename, 24)
     truncated_path = truncate_middle(album.path, 72)
 
-    album_photo = album.photo(filename)
+    # PhotoStation can read photo coordinates from exif
+    if photo.data.get('type') == 'video':
+        latitude = photo.data['details'].get('latitude')
+        longitude = photo.data['details'].get('longitude')
+    else:
+        latitude = longitude = None
 
-    if album_photo.exists():
+    filetype = 'photo' if photo.data.get('type') == 'image' else photo.data.get('type')
+
+    album_photo = album.create_item(
+        filename = filename, 
+        filetype = filetype,
+        mtime = photo.data.get('createdDate'),
+        title = photo.title,
+        description = photo.description,
+        rating = 1 if bool(photo.data.get('isFavorite')) else 0,
+        latitude = latitude,
+        longitude = longitude)
+
+    if album_photo.merge():
         progress_bar.set_description("%s already exists." % truncated_path)
         return
 
@@ -204,7 +227,7 @@ def download_photo(photo, size, force_size, album, progress_bar):
             download_url = photo.download(size)
 
             if download_url:
-                album_photo.create(download_url, photo.data.get('createdDate') / 1000.0)
+                album_photo.save_content(download_url)
                 break
 
             else:

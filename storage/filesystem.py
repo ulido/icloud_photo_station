@@ -27,28 +27,28 @@ class FileSystemAlbum(object):
     def __str__(self):
         return self.path
 
-    def photo(self, filename):
+    def create_item(self, filename, filetype, mtime, title, description, rating, latitude, longitude):
         filepath = '/'.join((self.path, filename))
-
-        return FileSystemPhoto(filepath)
+        return FileSystemPhoto(filepath, mtime)
 
 class FileSystemPhoto(object):
 
-    def __init__(self, path):
+    def __init__(self, path, mtime):
         self.path = path
+        self.mtime = mtime
 
     def __str__(self):
         return self.path
 
-    def exists(self):
+    def merge(self):
         return os.path.isfile(self.path)
 
-    def create(self, url, mtime):
+    def save_content(self, url):
         with open(self.path, 'wb') as file:
             for chunk in url.iter_content(chunk_size=1024):
                 if chunk:
                     file.write(chunk)
-        os.utime(self.path, (mtime,mtime))
+        os.utime(self.path, (self.mtime/1000,self.mtime/1000))
 
     def delete(self):
         if exists():

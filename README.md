@@ -3,6 +3,7 @@
 * A command-line tool to download all your iCloud photos.
 * Works on Mac, Linux, and Windows.
 * Run it multiple times to download any new photos.
+* Store photos either locally or [Synology NAS running Photo Station](https://www.synology.com/en-global/dsm/6.1/packages/PhotoStation).
 
 ### Why?
 
@@ -40,12 +41,13 @@ NOTE: Using the [system keyring to store your iCloud password](https://github.co
 
 ### Usage
 
-    $ ./download_photos.py <download_directory>
+    $ ./download_photos.py <download_directory or photostation root album>
                            --username=<username>
                            --password=<password>
                            [--size=(original|medium|thumb)]
                            [--recent <integer>]
                            [--auto-delete]
+                           [--photostation https://username:password@to.photo.station/photo/webapi/]
 
     Options:
       --username <username>           Your iCloud username or email address
@@ -58,6 +60,7 @@ NOTE: Using the [system keyring to store your iCloud password](https://github.co
       --auto-delete                   Scans the "Recently Deleted" folder and deletes any files
                                       found in there. (If you restore the photo in iCloud,
                                       it will be downloaded again.)
+      --photostation                  Instead of local file system store images to Synology Photo Station
       -h, --help                      Show this message and exit.
 
 
