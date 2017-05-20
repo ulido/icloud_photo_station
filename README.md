@@ -1,7 +1,7 @@
-# iCloud Photos Downloader
+# iCloud Photo Station
 
 * A command-line tool to download all your iCloud photos.
-* Works on Mac, Linux, and Windows.
+* Works on Mac, Linux, Windows, and Synology DSM.
 * Run it multiple times to download any new photos.
 * Store photos either locally or [Synology NAS running Photo Station](https://www.synology.com/en-global/dsm/6.1/packages/PhotoStation).
 
@@ -17,8 +17,8 @@
 ### Installation
 
     # Clone the repo somewhere
-    git clone https://github.com/ndbroadbent/icloud_photos_downloader.git
-    cd icloud_photos_downloader
+    git clone https://github.com/skarppi/icloud_photo_station.git
+    cd icloud_photo_station
 
     # Install dependencies
     sudo pip install -r requirements.txt
@@ -87,6 +87,24 @@ This process can take around 5-10 minutes, so please wait a few minutes, then tr
 
 (If you are still seeing this message after 30 minutes, then please open an issue on GitHub.)
 
+### Synology DSM installation and synching photos to Photo Station
+
+    # Create a SPK installation package containing virtualenv, python scripts and all necessary dependencies.
+
+    cd spk
+    sh build.sh
+
+Manually install resulting `icloud_photo_station-0.1.0.spk` in your DSM `Package Station`. Now you can set up `User-defined script` into `Task Scheduler` and set up scheduling and notification emails for script output.
+
+    source /volume1/@appstore/icloud_photo_station/env/bin/activate
+    python /volume1/@appstore/icloud_photo_station/app/download_photos.py \
+        --username '<YOUR ICLOUD USERNAME>' \
+        --password '<YOUR ICLOUD PASSWORD>' \
+        --download-videos \
+        --recent 1000 \
+        --photostation 'http://<YOUR PHOTOSTATION USERNAME>:<YOUR PHOTOSTATION PASSWORD>@localhost/photo/webapi/' root-album
+
+If your iCloud account has two-factor authentication enabled, SSH to Synology box and run the script manually first time in order to input the verification code.
 
 ### Run once every 3 hours using Cron
 

@@ -1,0 +1,13 @@
+#!/bin/sh
+
+### This script will be executed when package installed and upgraded.
+### Actions after package installed.
+### ex. create database, create symbolic link...
+
+# Create a Python virtualenv
+python ${SYNOPKG_PKGDEST}/virtualenv-15.1.0/virtualenv.py ${SYNOPKG_PKGDEST}/env
+
+# Install the wheels
+${SYNOPKG_PKGDEST}/env/bin/pip install --no-deps --no-index -U --force-reinstall -f ${SYNOPKG_PKGDEST}/wheelhouse ${SYNOPKG_PKGDEST}/wheelhouse/*.whl
+
+exit 0

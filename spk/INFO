@@ -1,0 +1,14 @@
+package="icloud_photo_station"
+version="0.1.0"
+description="Synchronize iCloud Photos to Photo Station"
+
+maintainer="Juho Kolehmainen"
+arch="noarch"
+displayname="iCloud Photo Station"
+firmware="6.1-7321"
+support_url="https://github.com/skarppi/icloud_photo_station"
+
+install_dep_packages="PhotoStation"
+
+startable="no"
+thirdparty="yes"
