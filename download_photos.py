@@ -199,7 +199,7 @@ def download_photo(photo, size, force_size, album, progress_bar):
     else:
         latitude = longitude = None
 
-    filetype = 'photo' if photo.data.get('type') == 'image' else photo.data.get('type')
+    filetype = 'video' if photo.data.get('type') in ['video', 'slo-mo', 'time-lapse'] else 'photo'
 
     album_photo = album.create_item(
         filename = filename, 
@@ -220,7 +220,7 @@ def download_photo(photo, size, force_size, album, progress_bar):
         download_photo(photo, 'original', True, album, progress_bar)
         return
 
-    progress_bar.set_description("Downloading %s to %s" % (truncated_filename, truncated_path))
+    progress_bar.set_description("Downloading %s to %s" % (truncated_filename.decode('ascii', 'ignore'), truncated_path.decode('ascii', 'ignore')))
 
     for _ in range(MAX_RETRIES):
         try:
