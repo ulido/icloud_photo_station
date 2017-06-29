@@ -1,9 +1,11 @@
 #!/usr/bin/env python
+from __future__ import print_function
 import click
 import sys
 import socket
 import requests
 import time
+import itertools
 from tqdm import tqdm
 from dateutil.parser import parse
 from filesystem import FileSystemStorage
@@ -35,6 +37,9 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 @click.option('--recent',
               help='Number of recent photos to download (default: download all photos)',
               type=click.IntRange(0))
+@click.option('--until-found',
+              help='Download most recently added photos until we find x number of previously downloaded consecutive photos (default: download all photos)',
+              type=click.IntRange(0))
 @click.option('--download-videos',
               help='Download both videos and photos (default: only download photos)',
               is_flag=True)
@@ -49,7 +54,7 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 
 def download(directory, photostation, username, password, size, recent, \
-    download_videos, force_size, auto_delete):
+    until_found, download_videos, force_size, auto_delete):
     """Download all iCloud photos to a local directory"""
 
     if photostation:
@@ -58,23 +63,32 @@ def download(directory, photostation, username, password, size, recent, \
         directory = FileSystemStorage(directory)
 
     icloud = authenticate(username, password)
-    updatePhotos(icloud)
 
-    print "Looking up all photos..."
-    photos = icloud.photos.all.photos
+    print("Looking up all photos...")
+    photos = icloud.photos.all
+    photos_count = len(photos)
 
     # Optional: Only download the x most recent photos.
     if recent is not None:
-        photos = photos[slice(recent * -1, None)]
+        photos_count = recent
+        photos = (p for i,p in enumerate(photos) if i < recent)
 
-    photos_count = len(photos)
+    kwargs = {'total': photos_count}
+
+    if until_found is not None:
+        del kwargs['total']
+        photos_count = '???'
+
+        # ensure photos iterator doesn't have a known length
+        photos = (p for p in photos)
 
     if download_videos:
-        print "Downloading %d %s photos and videos to %s/ ..." % (photos_count, size, directory)
+        print("Downloading %s %s photos and videos to %s/ ..." % (photos_count, size, directory))
     else:
-        print "Downloading %d %s photos to %s/ ..." % (photos_count, size, directory)
+        print("Downloading %s %s photos to %s/ ..." % (photos_count, size, directory))
 
-    progress_bar = tqdm(photos, total=photos_count)
+    consecutive_files_found = 0
+    progress_bar = tqdm(photos, **kwargs)
 
     for photo in progress_bar:
         for _ in range(MAX_RETRIES):
@@ -86,18 +100,18 @@ def download(directory, photostation, username, password, size, recent, \
                         "Skipping %s, only downloading photos." % photo.filename)
                     continue
 
-                created_date = None
-                try:
-                    created_date = parse(photo.created)
-                except TypeError:
-                    print "Could not find created date for photo!"
-                    continue
+                created_date = photo.created
 
                 date_path = '{:%Y/%m/%d}'.format(created_date)
 
                 album = directory.album(date_path, create=True)
 
-                download_photo(photo, size, force_size, album, progress_bar)
+                exists = download_photo(photo, size, force_size, album, progress_bar)
+                if until_found is not None:
+                    if exists:
+                        consecutive_files_found += 1
+                    else:
+                        consecutive_files_found = 0
                 break
 
             except (requests.exceptions.ConnectionError, socket.timeout):
@@ -107,15 +121,21 @@ def download(directory, photostation, username, password, size, recent, \
         else:
             tqdm.write("Could not process %s! Maybe try again later." % photo.filename)
 
-    print "All photos have been downloaded!"
+        if until_found is not None and consecutive_files_found >= until_found:
+            tqdm.write('Found %d consecutive previusly downloaded photos.  Exiting' % until_found)
+            progress_bar.close()
+            break
+
+
+    print("All photos have been downloaded!")
 
     if auto_delete:
-        print "Deleting any files found in 'Recently Deleted'..."
+        print("Deleting any files found in 'Recently Deleted'...")
 
         recently_deleted = icloud.photos.albums['Recently Deleted']
 
         for media in recently_deleted:
-            created_date = parse(media.created)
+            created_date = media.created
             date_path = '{:%Y/%m/%d}'.format(created_date)
 
             album = directory.album(date_path, create=False)
@@ -124,51 +144,29 @@ def download(directory, photostation, username, password, size, recent, \
                 album.photo(filename).delete()
 
 def authenticate(username, password):
-    print "Signing in..."
+    print("Signing in...")
     icloud = pyicloud.PyiCloudService(username, password)
 
     if icloud.requires_2fa:
-        print "Two-factor authentication required. Your trusted devices are:"
+        print("Two-factor authentication required. Your trusted devices are:")
 
         devices = icloud.trusted_devices
         for i, device in enumerate(devices):
-            print "  %s: %s" % (i, device.get('deviceName',
-                "SMS to %s" % device.get('phoneNumber')))
+            print("  %s: %s" % (i, device.get('deviceName',
+                "SMS to %s" % device.get('phoneNumber'))))
 
         device = click.prompt('Which device would you like to use?', default=0)
         device = devices[device]
         if not icloud.send_verification_code(device):
-            print "Failed to send verification code"
+            print("Failed to send verification code")
             sys.exit(1)
 
         code = click.prompt('Please enter validation code')
         if not icloud.validate_verification_code(device, code):
-            print "Failed to verify verification code"
+            print("Failed to verify verification code")
             sys.exit(1)
 
     return icloud
-
-# See: https://github.com/picklepete/pyicloud/pull/100
-def updatePhotos(icloud):
-    print "Updating photos..."
-    try:
-        icloud.photos.update()
-    except pyicloud.exceptions.PyiCloudAPIResponseError as exception:
-        print exception
-        print
-        print(
-            "This error usually means that Apple's servers are getting ready "
-            "to send you data about your photos.")
-        print(
-            "This process can take around 5-10 minutes, and it only happens when "
-            "you run the script for the very first time.")
-        print "Please wait a few minutes, then try again."
-        print
-        print(
-            "(If you are still seeing this message after 30 minutes, "
-            "then please open an issue on GitHub.)")
-        print
-        sys.exit(1)
 
 def truncate_middle(s, n):
     if len(s) <= n:
@@ -213,7 +211,7 @@ def download_photo(photo, size, force_size, album, progress_bar):
 
     if album_photo.merge():
         progress_bar.set_description("%s already exists." % truncated_path)
-        return
+        return True
 
     # Fall back to original if requested size is not available
     if size not in photo.versions and not force_size and size != 'original':
