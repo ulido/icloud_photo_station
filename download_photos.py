@@ -11,6 +11,9 @@ from dateutil.parser import parse
 from filesystem import FileSystemStorage
 from photostation import PhotoStationService
 import pyicloud
+from pprint import pprint
+from base64 import b64decode
+from biplist import readPlistFromString
 
 # For retrying connection after timeouts and errors
 MAX_RETRIES = 5
@@ -190,22 +193,35 @@ def download_photo(photo, size, force_size, album, progress_bar):
     truncated_filename = truncate_middle(filename, 24)
     truncated_path = truncate_middle(album.path, 72)
 
-    # PhotoStation can read photo coordinates from exif
-    if photo.data.get('type') == 'video':
-        latitude = photo.data['details'].get('latitude')
-        longitude = photo.data['details'].get('longitude')
-    else:
-        latitude = longitude = None
+    master_fields = photo._master_record['fields']
+    asset_fields = photo._asset_record['fields']
 
-    filetype = 'video' if photo.data.get('type') in ['video', 'slo-mo', 'time-lapse'] else 'photo'
+    is_photo = master_fields['itemType']['value'] in ['public.jpeg', 'public.png']
+
+
+    # PhotoStation can read photo coordinates from exif
+    latitude = longitude = None
+    if not is_photo and asset_fields.get('locationEnc') is not None:
+        location = readPlistFromString(b64decode(asset_fields['locationEnc']['value']))
+        latitude = location['lat']
+        longitude = location['lon']
+
+    description = ''
+    if master_fields.get('mediaMetaDataEnc') is not None:
+        metadata = readPlistFromString(b64decode(master_fields['mediaMetaDataEnc']['value']))
+        description = metadata['ImageDescription']
+
+    title = ''
+    if asset_fields.get('captionEnc') is not None:
+        title = b64decode(asset_fields['captionEnc']['value'])
 
     album_photo = album.create_item(
         filename = filename, 
-        filetype = filetype,
-        mtime = photo.data.get('createdDate'),
-        title = photo.title,
-        description = photo.description,
-        rating = 1 if bool(photo.data.get('isFavorite')) else 0,
+        filetype = 'photo' if is_photo else 'video',
+        mtime = asset_fields['assetDate']['value'],
+        title = title,
+        description = description,
+        rating = asset_fields['isFavorite']['value'],
         latitude = latitude,
         longitude = longitude)
 
@@ -215,8 +231,7 @@ def download_photo(photo, size, force_size, album, progress_bar):
 
     # Fall back to original if requested size is not available
     if size not in photo.versions and not force_size and size != 'original':
-        download_photo(photo, 'original', True, album, progress_bar)
-        return
+        return download_photo(photo, 'original', True, album, progress_bar)
 
     progress_bar.set_description("Downloading %s to %s" % (truncated_filename.decode('ascii', 'ignore'), truncated_path.decode('ascii', 'ignore')))
 
@@ -242,6 +257,7 @@ def download_photo(photo, size, force_size, album, progress_bar):
     else:
         tqdm.write("Could not download %s! Maybe try again later." % photo.filename)
 
+    return False
 
 if __name__ == '__main__':
     download()
