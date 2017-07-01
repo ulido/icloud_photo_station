@@ -2,3 +2,4 @@ cron_script.sh
 *.pyc
 Photos/
 cookies-*.txt
+run*.sh

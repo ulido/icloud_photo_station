@@ -1,5 +1,5 @@
 package="icloud_photo_station"
-version="0.1.0"
+version="0.1.1"
 description="Synchronize iCloud Photos to Photo Station"
 
 maintainer="Juho Kolehmainen"

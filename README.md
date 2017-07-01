@@ -4,15 +4,14 @@
 * Works on Mac, Linux, Windows, and Synology DSM.
 * Run it multiple times to download any new photos.
 * Store photos either locally or [Synology NAS running Photo Station](https://www.synology.com/en-global/dsm/6.1/packages/PhotoStation).
+  * Sync photo metadata (ratings, title, description, coordinates) to PhotoStation
 
 ### Why?
 
 * I use the Photos app on my MacBook, set to "Optimize Mac Storage". It stores full-resolution images in iCloud, and only stores thumbnails on my computer until they are requested.
-* I want to download a copy of all my photos onto my Linux PC, because:
-  * I use Plex instead of an Apple TV. Now I can display photo slideshows with Plex.
+* I want to download a copy of all my photos onto my Synology NAS, because:
+  * I already use Synology PhotoStation to organize all my post-processed DSLR photos and I want to have my mobile phone photos from iCloud at the same place.
   * I like having a backup of all my photos on my own hard-drive.
-* I only want to download the "medium" size of all my photos. They save some space while still being big enough for slideshows. If "medium" is not available, then fall back to downloading the original size.
-
 
 ### Installation
 
@@ -23,9 +22,7 @@
     # Install dependencies
     sudo pip install -r requirements.txt
 
-(Please note that `requirements.txt` references a patched version of the
-[pyicloud](https://github.com/picklepete/pyicloud) library. We are using the [#photos-update branch](https://github.com/picklepete/pyicloud/pull/100),
-which has a fix for updating recent photos.)
+(Please note that `requirements.txt` references a patched version of the [pyicloud](https://github.com/picklepete/pyicloud) library.
 
 ### Authentication
 
@@ -74,7 +71,7 @@ Example:
         --username=testuser@example.com \
         --password=pass1234 \
         --size=original \
-        --recent 500 \
+        --until-found 10 \
         --auto-delete
 
 
@@ -98,14 +95,15 @@ This process can take around 5-10 minutes, so please wait a few minutes, then tr
     cd spk
     sh build.sh
 
-Manually install resulting `icloud_photo_station-0.1.0.spk` in your DSM `Package Station`. Now you can set up `User-defined script` into `Task Scheduler` and set up scheduling and notification emails for script output.
+Manually install resulting [icloud_photo_station-0.1.1.spk](https://github.com/skarppi/icloud_photo_station/releases/download/0.1.1/icloud_photo_station-0.1.1.spk) in your DSM `Package Station`. Now you can set up `User-defined script` into `Task Scheduler` and set up scheduling and notification emails for script output.
 
     source /volume1/@appstore/icloud_photo_station/env/bin/activate
     python /volume1/@appstore/icloud_photo_station/app/download_photos.py \
         --username '<YOUR ICLOUD USERNAME>' \
         --password '<YOUR ICLOUD PASSWORD>' \
         --download-videos \
-        --recent 1000 \
+        --auto-delete \
+        --until-found 10 \
         --photostation 'http://<YOUR PHOTOSTATION USERNAME>:<YOUR PHOTOSTATION PASSWORD>@localhost/photo/webapi/' root-album
 
 If your iCloud account has two-factor authentication enabled, SSH to Synology box and run the script manually first time in order to input the verification code.
@@ -121,3 +119,11 @@ If your iCloud account has two-factor authentication enabled, SSH to Synology bo
 ```
 0 */3 * * * /path/to/icloud_photos_downloader/cron_script.sh
 ```
+
+### TODO
+
+* Store photos in their albums and use default date structure YYYY/MM/DD as fallback if photo doesn't belong to any album
+* Use multiple PhotoStation destinations
+  * E.g. sync by default to global PhotoStation
+  * Allow moving some photos to Personal PhotoStation so that they doesn't appear back to the default PhotoStation
+* Enable easier way to enter two-factor authentication (2FA) code without need to SSH to your Synology box
