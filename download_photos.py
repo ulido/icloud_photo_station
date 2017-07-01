@@ -144,7 +144,10 @@ def download(directory, photostation, username, password, size, recent, \
             album = directory.album(date_path, create=False)
             if album:
                 filename = filename_with_size(media, size)
-                album.photo(filename).delete()
+                item = album.item(filename)
+                if item is not None:
+                    print('deleting photo ' + str(item) + ' from album ' + album.path)
+                    item.delete()
 
 def authenticate(username, password):
     print("Signing in...")
