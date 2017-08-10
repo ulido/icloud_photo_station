@@ -218,10 +218,15 @@ def download_photo(photo, size, force_size, album, progress_bar):
     if asset_fields.get('captionEnc') is not None:
         title = b64decode(asset_fields['captionEnc']['value'])
 
+    filesize = photo.size
+    if 'resJPEGFullRes' in asset_fields:
+        filesize = asset_fields['resJPEGFullRes']['value']['size']
+
     album_photo = album.create_item(
         filename = filename, 
         filetype = 'photo' if is_photo else 'video',
-        mtime = asset_fields['assetDate']['value'],
+        created = asset_fields['assetDate']['value'],
+        filesize = filesize,
         title = title,
         description = description,
         rating = asset_fields['isFavorite']['value'],
@@ -240,7 +245,15 @@ def download_photo(photo, size, force_size, album, progress_bar):
 
     for _ in range(MAX_RETRIES):
         try:
-            download_url = photo.download(size)
+            if 'resJPEGFullRes' in asset_fields:
+                # Download edited file if available
+                download_url = photo._service.session.get(
+                    asset_fields['resJPEGFullRes']['value']['downloadURL'],
+                    stream=True
+                )
+            else:
+                # For supported file sizes
+                download_url = photo.download(size)
 
             if download_url:
                 album_photo.save_content(download_url)

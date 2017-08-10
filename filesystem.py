@@ -27,15 +27,15 @@ class FileSystemAlbum(object):
     def __str__(self):
         return self.path
 
-    def create_item(self, filename, filetype, mtime, title, description, rating, latitude, longitude):
+    def create_item(self, filename, filetype, created, modified = None, filesize = None, title = None, description = None, rating = None, latitude = None, longitude = None):
         filepath = '/'.join((self.path, filename))
-        return FileSystemPhoto(filepath, mtime)
+        return FileSystemPhoto(filepath, created)
 
 class FileSystemPhoto(object):
 
-    def __init__(self, path, mtime):
+    def __init__(self, path, created):
         self.path = path
-        self.mtime = mtime
+        self.created = created
 
     def __str__(self):
         return self.path
@@ -48,7 +48,7 @@ class FileSystemPhoto(object):
             for chunk in url.iter_content(chunk_size=1024):
                 if chunk:
                     file.write(chunk)
-        os.utime(self.path, (self.mtime/1000,self.mtime/1000))
+        os.utime(self.path, (self.created / 1000,self.created / 1000))
 
     def delete(self):
         if exists():
