@@ -95,7 +95,7 @@ This process can take around 5-10 minutes, so please wait a few minutes, then tr
     cd spk
     sh build.sh
 
-Manually install resulting [icloud_photo_station-0.1.1.spk](https://github.com/skarppi/icloud_photo_station/releases/download/0.1.1/icloud_photo_station-0.1.1.spk) in your DSM `Package Station`. Now you can set up `User-defined script` into `Task Scheduler` and set up scheduling and notification emails for script output.
+Manually install resulting [icloud_photo_station-0.1.4.spk](https://github.com/skarppi/icloud_photo_station/releases/download/0.1.4/icloud_photo_station-0.1.4.spk) in your DSM `Package Station`. Now you can set up `User-defined script` into `Task Scheduler` and set up scheduling and notification emails for script output.
 
     source /volume1/@appstore/icloud_photo_station/env/bin/activate
     python /volume1/@appstore/icloud_photo_station/app/download_photos.py \
