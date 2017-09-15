@@ -27,6 +27,11 @@ class FileSystemAlbum(object):
     def __str__(self):
         return self.path
 
+    def item(self, filename):
+        filepath = '/'.join((self.path, filename))
+        if os.path.isfile(filepath):
+            return FileSystemPhoto(filepath, os.path.getmtime(filepath))
+
     def create_item(self, filename, filetype, created, modified = None, filesize = None, title = None, description = None, rating = None, latitude = None, longitude = None):
         filepath = '/'.join((self.path, filename))
         return FileSystemPhoto(filepath, created)
@@ -51,6 +56,5 @@ class FileSystemPhoto(object):
         os.utime(self.path, (self.created / 1000,self.created / 1000))
 
     def delete(self):
-        if exists():
-            print "Deleting %s!" % self.path
-            os.remove(self.path)
+        print ("Deleting %s!" % self.path)
+        os.remove(self.path)

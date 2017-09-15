@@ -183,11 +183,15 @@ def truncate_middle(s, n):
     return '{0}...{1}'.format(s[:n_1], s[-n_2:])
 
 def filename_with_size(photo, size):
-    if size == 'original':
-        return photo.filename.encode('utf-8')
+    if sys.version_info[0] >= 3:
+        filename = photo.filename
     else:
-        return photo.filename.encode('utf-8') \
-            .decode('ascii', 'ignore').replace('.', '-%s.' % size)
+        filename = photo.filename.encode('utf-8')
+
+    if size == 'original':
+        return filename
+    else:
+        return filename.decode('ascii', 'ignore').replace('.', '-%s.' % size)
 
 def download_photo(photo, size, force_size, album, progress_bar):
     # Strip any non-ascii characters.
@@ -241,7 +245,7 @@ def download_photo(photo, size, force_size, album, progress_bar):
     if size not in photo.versions and not force_size and size != 'original':
         return download_photo(photo, 'original', True, album, progress_bar)
 
-    progress_bar.set_description("Downloading %s to %s" % (truncated_filename.decode('ascii', 'ignore'), truncated_path.decode('ascii', 'ignore')))
+    progress_bar.set_description("Downloading %s to %s" % (truncated_filename.encode().decode('ascii', 'ignore'), truncated_path.encode().decode('ascii', 'ignore')))
 
     for _ in range(MAX_RETRIES):
         try:
