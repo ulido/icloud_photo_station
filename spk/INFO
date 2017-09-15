@@ -8,5 +8,4 @@ displayname="iCloud Photo Station"
 firmware="6.1-7321"
 support_url="https://github.com/skarppi/icloud_photo_station"
 
-startable="no"
-thirdparty="yes"
+ctl_stop="no"
