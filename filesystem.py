@@ -34,6 +34,8 @@ class FileSystemAlbum(object):
             return FileSystemPhoto(filepath, os.path.getmtime(filepath))
 
     def create_item(self, filename, filetype, created, modified = None, filesize = None, title = None, description = None, rating = None, latitude = None, longitude = None):
+        if hasattr(filename, 'decode'):
+            filename = filename.decode('utf-8')
         filepath = os.path.join(self.path, filename)
         return FileSystemPhoto(filepath, created)
 
@@ -57,5 +59,4 @@ class FileSystemPhoto(object):
         os.utime(self.path, (self.created / 1000,self.created / 1000))
 
     def delete(self):
-        print ("Deleting %s!" % self.path)
         os.remove(self.path)

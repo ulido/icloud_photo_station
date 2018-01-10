@@ -146,9 +146,7 @@ def download(directory, photostation, username, password, size, recent, \
 
                 date_path = '{:%Y/%m/%d}'.format(created_date)
 
-                album = directory.album(date_path, create=True)
-
-                
+                album = directory.album(date_path, create=not only_print_filenames)
                 exists = download_photo(photo, size, force_size, album, progress_bar, only_print_filenames)
 
                 if until_found is not None:
@@ -189,7 +187,7 @@ def download(directory, photostation, username, password, size, recent, \
                     filename = filename_with_size(media, size)
                     item = album.item(filename)
                     if item is not None:
-                        print('deleting photo ' + str(item) + ' from album ' + album.path)
+                        print('deleting photo ' + str(filename) + ' from album ' + album.path)
                         item.delete()
 
 def truncate_middle(s, n):
@@ -215,8 +213,12 @@ def download_photo(photo, size, force_size, album, progress_bar, only_print_file
     # Strip any non-ascii characters.
     filename = filename_with_size(photo, size)
 
-    truncated_filename = truncate_middle(filename, 24)
+    truncated_filename = truncate_middle(filename, 48)
     truncated_path = truncate_middle(album.path, 72)
+
+    if hasattr(truncated_path, 'decode'):
+        truncated_path = truncated_path.encode('utf-8').decode('ascii', 'ignore')
+        truncated_filename = truncated_filename.decode('ascii', 'ignore')
 
     master_fields = photo._master_record['fields']
     asset_fields = photo._asset_record['fields']
@@ -268,7 +270,7 @@ def download_photo(photo, size, force_size, album, progress_bar, only_print_file
     if size not in photo.versions and not force_size and size != 'original':
         return download_photo(photo, 'original', True, album, progress_bar)
 
-    progress_bar.set_description("Downloading %s to %s" % (truncated_filename.encode().decode('ascii', 'ignore'), truncated_path.encode().decode('ascii', 'ignore')))
+    progress_bar.set_description("Downloading %s to %s" % (truncated_filename, truncated_path))
 
     for _ in range(MAX_RETRIES):
         try:
