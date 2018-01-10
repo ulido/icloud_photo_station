@@ -14,6 +14,7 @@ import pyicloud
 from pprint import pprint
 from base64 import b64decode
 from biplist import readPlistFromString
+from authentication import authenticate
 
 # For retrying connection after timeouts and errors
 MAX_RETRIES = 5
@@ -31,8 +32,7 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
               prompt='iCloud username/email')
 @click.option('--password',
               help='Your iCloud password',
-              metavar='<password>',
-              prompt='iCloud password')
+              metavar='<password>')
 @click.option('--size',
               help='Image size to download (default: original)',
               type=click.Choice(['original', 'medium', 'thumb']),
@@ -54,27 +54,62 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
               help='Scans the "Recently Deleted" folder and deletes any files found in there. ' + \
                    '(If you restore the photo in iCloud, it will be downloaded again.)',
               is_flag=True)
+@click.option('--only-print-filenames',
+              help='Only prints the filenames of all files that will be downloaded. ' + \
+                '(Does not download any files.)',
+              is_flag=True)
+
+@click.option('--smtp-username',
+              help='Your SMTP username, for sending email notifications when two-step authentication expires.',
+              metavar='<smtp_username>')
+@click.option('--smtp-password',
+              help='Your SMTP password, for sending email notifications when two-step authentication expires.',
+              metavar='<smtp_password>')
+@click.option('--smtp-host',
+              help='Your SMTP server host. Defaults to: smtp.gmail.com',
+              metavar='<smtp_host>',
+              default='smtp.gmail.com')
+@click.option('--smtp-port',
+              help='Your SMTP server port. Default: 587 (Gmail)',
+              metavar='<smtp_port>',
+              type=click.IntRange(0),
+              default=587)
+@click.option('--smtp-no-tls',
+              help='Pass this flag to disable TLS for SMTP (TLS is required for Gmail)',
+              metavar='<smtp_no_tls>',
+              is_flag=True)
+@click.option('--notification-email',
+              help='Email address where you would like to receive email notifications. Default: SMTP username',
+              metavar='<notification_email>')
 
 
 def download(directory, photostation, username, password, size, recent, \
-    until_found, download_videos, force_size, auto_delete):
+    until_found, download_videos, force_size, auto_delete, \
+    only_print_filenames, \
+    smtp_username, smtp_password, smtp_host, smtp_port, smtp_no_tls, \
+    notification_email):
     """Download all iCloud photos to a local directory"""
+
+    if not notification_email:
+        notification_email = smtp_username
+
+    icloud = authenticate(username, password, \
+        smtp_username, smtp_password, smtp_host, smtp_port, smtp_no_tls, notification_email)
 
     if photostation:
         directory = PhotoStationService(photostation, directory)
     else:
         directory = FileSystemStorage(directory)
 
-    icloud = authenticate(username, password)
-
-    print("Looking up all photos...")
+    if not only_print_filenames:
+        print("Looking up all photos...")
     photos = icloud.photos.all
     photos_count = len(photos)
 
     # Optional: Only download the x most recent photos.
     if recent is not None:
         photos_count = recent
-        photos = (p for i,p in enumerate(photos) if i < recent)
+        photos = itertools.islice(photos, recent)
 
     kwargs = {'total': photos_count}
 
@@ -85,22 +120,26 @@ def download(directory, photostation, username, password, size, recent, \
         # ensure photos iterator doesn't have a known length
         photos = (p for p in photos)
 
-    if download_videos:
-        print("Downloading %s %s photos and videos to %s/ ..." % (photos_count, size, directory))
-    else:
-        print("Downloading %s %s photos to %s/ ..." % (photos_count, size, directory))
+    if not only_print_filenames:
+        if download_videos:
+            print("Downloading %s %s photos and videos to %s/ ..." % (photos_count, size, directory))
+        else:
+            print("Downloading %s %s photos to %s/ ..." % (photos_count, size, directory))
 
     consecutive_files_found = 0
-    progress_bar = tqdm(photos, **kwargs)
+    if only_print_filenames:
+        progress_bar = photos
+    else:
+        progress_bar = tqdm(photos, **kwargs)
 
     for photo in progress_bar:
         for _ in range(MAX_RETRIES):
             try:
                 if not download_videos \
                     and not photo.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-
-                    progress_bar.set_description(
-                        "Skipping %s, only downloading photos." % photo.filename)
+                    if not only_print_filenames:
+                        progress_bar.set_description(
+                            "Skipping %s, only downloading photos." % photo.filename)
                     continue
 
                 created_date = photo.created
@@ -109,7 +148,9 @@ def download(directory, photostation, username, password, size, recent, \
 
                 album = directory.album(date_path, create=True)
 
-                exists = download_photo(photo, size, force_size, album, progress_bar)
+                
+                exists = download_photo(photo, size, force_size, album, progress_bar, only_print_filenames)
+
                 if until_found is not None:
                     if exists:
                         consecutive_files_found += 1
@@ -118,61 +159,38 @@ def download(directory, photostation, username, password, size, recent, \
                 break
 
             except (requests.exceptions.ConnectionError, socket.timeout):
-                tqdm.write('Connection failed, retrying after %d seconds...' % WAIT_SECONDS)
+                if not only_print_filenames:
+                    tqdm.write('Connection failed, retrying after %d seconds...' % WAIT_SECONDS)
                 time.sleep(WAIT_SECONDS)
 
         else:
-            tqdm.write("Could not process %s! Maybe try again later." % photo.filename)
+            if not only_print_filenames:
+                tqdm.write("Could not process %s! Maybe try again later." % photo.filename)
 
         if until_found is not None and consecutive_files_found >= until_found:
-            tqdm.write('Found %d consecutive previusly downloaded photos.  Exiting' % until_found)
-            progress_bar.close()
+            if not only_print_filenames:
+                tqdm.write('Found %d consecutive previusly downloaded photos. Exiting' % until_found)
+                progress_bar.close()
             break
 
+    if not only_print_filenames:
+        print("All photos have been downloaded!")
 
-    print("All photos have been downloaded!")
+        if auto_delete:
+            print("Deleting any files found in 'Recently Deleted'...")
 
-    if auto_delete:
-        print("Deleting any files found in 'Recently Deleted'...")
+            recently_deleted = icloud.photos.albums['Recently Deleted']
 
-        recently_deleted = icloud.photos.albums['Recently Deleted']
-
-        for media in recently_deleted:
-            created_date = media.created
-            date_path = '{:%Y/%m/%d}'.format(created_date)
-
-            album = directory.album(date_path, create=False)
-            if album:
-                filename = filename_with_size(media, size)
-                item = album.item(filename)
-                if item is not None:
-                    print('deleting photo ' + str(item) + ' from album ' + album.path)
-                    item.delete()
-
-def authenticate(username, password):
-    print("Signing in...")
-    icloud = pyicloud.PyiCloudService(username, password)
-
-    if icloud.requires_2fa:
-        print("Two-factor authentication required. Your trusted devices are:")
-
-        devices = icloud.trusted_devices
-        for i, device in enumerate(devices):
-            print("  %s: %s" % (i, device.get('deviceName',
-                "SMS to %s" % device.get('phoneNumber'))))
-
-        device = click.prompt('Which device would you like to use?', default=0)
-        device = devices[device]
-        if not icloud.send_verification_code(device):
-            print("Failed to send verification code")
-            sys.exit(1)
-
-        code = click.prompt('Please enter validation code')
-        if not icloud.validate_verification_code(device, code):
-            print("Failed to verify verification code")
-            sys.exit(1)
-
-    return icloud
+            for media in recently_deleted:
+                created_date = media.created
+                date_path = '{:%Y/%m/%d}'.format(created_date)
+                album = directory.album(date_path, create=False)
+                if album:
+                    filename = filename_with_size(media, size)
+                    item = album.item(filename)
+                    if item is not None:
+                        print('deleting photo ' + str(item) + ' from album ' + album.path)
+                        item.delete()
 
 def truncate_middle(s, n):
     if len(s) <= n:
@@ -193,7 +211,7 @@ def filename_with_size(photo, size):
     else:
         return filename.decode('ascii', 'ignore').replace('.', '-%s.' % size)
 
-def download_photo(photo, size, force_size, album, progress_bar):
+def download_photo(photo, size, force_size, album, progress_bar, only_print_filenames):
     # Strip any non-ascii characters.
     filename = filename_with_size(photo, size)
 
@@ -238,8 +256,13 @@ def download_photo(photo, size, force_size, album, progress_bar):
         longitude = longitude)
 
     if album_photo.merge():
-        progress_bar.set_description("%s already exists." % truncated_path)
+        if not only_print_filenames:
+            progress_bar.set_description("%s already exists." % truncated_path)
         return True
+
+    if only_print_filenames:
+        print(truncated_filename)
+        return False
 
     # Fall back to original if requested size is not available
     if size not in photo.versions and not force_size and size != 'original':

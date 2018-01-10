@@ -1,5 +1,5 @@
 cron_script.sh
-*.pyc
 Photos/
+__pycache__
+*.pyc
 cookies-*.txt
-run*.sh

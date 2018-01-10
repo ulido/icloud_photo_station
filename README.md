@@ -19,10 +19,8 @@
     git clone https://github.com/skarppi/icloud_photo_station.git
     cd icloud_photo_station
 
-    # Install dependencies
+    # Install dependencies (Linux)
     sudo pip install -r requirements.txt
-
-(Please note that `requirements.txt` references a patched version of the [pyicloud](https://github.com/picklepete/pyicloud) library.
 
 ### Authentication
 
@@ -30,39 +28,93 @@ If your account has two-factor authentication enabled,
 you will be prompted for a code when you run the script.
 
 Two-factor authentication will expire after an interval set by Apple,
-at which point you will have to re-authenticate.
-This interval is currently two months.
+at which point you will have to re-authenticate. This interval is currently two months.
 
-NOTE: Using the [system keyring to store your iCloud password](https://github.com/picklepete/pyicloud#authentication) is not supported, because this is an automated script. Just provide your iCloud password by using the `--password` option.
+You can receive an email notification when two-factor authentication expires by passing the
+`--smtp-username` and `--smtp-password` options. Emails will be sent to `--smtp-username` by default,
+or you can send to a different email address with `--notification-email`.
+
+If you want to send notification emails using your Gmail account, and you have enabled two-factor authentication, you will need to generate an App Password at https://myaccount.google.com/apppasswords
+
+
+#### System Keyring
+
+You can store your password in the system keyring using the `icloud` command-line tool
+(installed with the `pyicloud` dependency):
+
+    $ icloud --username=jappleseed@apple.com
+    ICloud Password for jappleseed@apple.com:
+    Save password in keyring? (y/N)
+
+If you have stored a password in the keyring, you will not be required to provide a password
+when running the script.
+
+If you would like to delete a password stored in your system keyring,
+you can clear a stored password using the `--delete-from-keyring` command-line option:
+
+    $ icloud --username=jappleseed@apple.com --delete-from-keyring
 
 
 ### Usage
 
     $ ./download_photos.py <download_directory or photostation root album>
                            --username=<username>
-                           --password=<password>
+                           [--password=<password>]
                            [--size=(original|medium|thumb)]
                            [--recent <integer>]
                            [--until-found <integer>]
+                           [--download-videos]
                            [--auto-delete]
+                           [--only-print-filenames]
+                           [--smtp-username <smtp_username>]
+                           [--smtp-password <smtp_password>]
+                           [--smtp-host <smtp_host>]
+                           [--smtp-port <smtp_port>]
+                           [--smtp-no-tls]
+                           [--notification-email <notification_email>]
                            [--photostation https://username:password@to.photo.station/photo/webapi/]
 
     Options:
-      --username <username>           Your iCloud username or email address
-      --password <password>           Your iCloud password
-      --size [original|medium|thumb]  Image size to download (default: original)
-      --recent INTEGER                Number of recent photos to download (default: download all photos)
-      --until-found INTEGER RANGE     Download most recently added photos until we
-                                      find x number of previously downloaded
-                                      consecutive photos (default: download all photos)
-      --download-videos               Download both videos and photos (default: only download photos)
-      --force-size                    Only download the requested size
-                                      (default: download original if size is not available)
-      --auto-delete                   Scans the "Recently Deleted" folder and deletes any files
-                                      found in there. (If you restore the photo in iCloud,
-                                      it will be downloaded again.)
-      --photostation                  Instead of local file system store images to Synology Photo Station
-      -h, --help                      Show this message and exit.
+        --username <username>           Your iCloud username or email address
+        --password <password>           Your iCloud password
+        --size [original|medium|thumb]  Image size to download (default: original)
+        --recent INTEGER RANGE          Number of recent photos to download
+                                        (default: download all photos)
+        --until-found INTEGER RANGE     Download most recently added photos until we
+                                        find x number of previously downloaded
+                                        consecutive photos (default: download all
+                                        photos)
+        --download-videos               Download both videos and photos (default:
+                                        only download photos)
+        --force-size                    Only download the requested size (default:
+                                        download original if size is not available)
+        --auto-delete                   Scans the "Recently Deleted" folder and
+                                        deletes any files found in there. (If you
+                                        restore the photo in iCloud, it will be
+                                        downloaded again.)
+        --only-print-filenames          Only prints the filenames of all files that
+                                        will be downloaded. (Does not download any
+                                        files.)
+        --smtp-username <smtp_username>
+                                        Your SMTP username, for sending email
+                                        notifications when two-step authentication
+                                        expires.
+        --smtp-password <smtp_password>
+                                        Your SMTP password, for sending email
+                                        notifications when two-step authentication
+                                        expires.
+        --smtp-host <smtp_host>         Your SMTP server host. Defaults to:
+                                        smtp.gmail.com
+        --smtp-port <smtp_port>         Your SMTP server port. Default: 587 (Gmail)
+        --smtp-no-tls                   Pass this flag to disable TLS for SMTP (TLS
+                                        is required for Gmail)
+        --notification-email <notification_email>
+                                        Email address where you would like to
+                                        receive email notifications. Default: SMTP
+                                        username
+        --photostation                  Instead of local file system store images to 
+                                        Synology Photo Station
+        -h, --help                      Show this message and exit.
 
 
 Example:
@@ -118,6 +170,28 @@ If your iCloud account has two-factor authentication enabled, SSH to Synology bo
 
 ```
 0 */3 * * * /path/to/icloud_photos_downloader/cron_script.sh
+```
+
+### Docker
+
+* Build the image:
+
+```
+$ git clone https://github.com/ndbroadbent/icloud_photos_downloader.git
+$ cd icloud_photos_downloader.git/docker
+$ docker build -t icloud_photos_downloader .
+```
+
+* Usage:
+
+```
+$ docker run -it --rm --name icloud -v $(pwd)/Photos:/data icloud_photos_downloader ./download_photos.py \
+    --username=testuser@example.com \
+    --password=pass1234 \
+    --size=original \
+    --recent 500 \
+    --auto-delete \
+    /data
 ```
 
 ### TODO

@@ -2,20 +2,21 @@ import os
 
 class FileSystemStorage(object):
 
-    def __init__(self, root):
-        self.root = root.rstrip('/')
+    def __init__(self, directory):
+        if hasattr(directory, 'decode'):
+            directory = directory.decode('utf-8')
+
+        self.root = os.path.normpath(directory)
 
     def __str__(self):
         return self.root
 
     def album(self, path, create):
-        album = '/'.join((self.root, path))
+        album = os.path.join(self.root, path)
 
         if not os.path.exists(album):
             if create:
                 os.makedirs(album)
-            else:
-                return False
 
         return FileSystemAlbum(album)
 
@@ -28,12 +29,12 @@ class FileSystemAlbum(object):
         return self.path
 
     def item(self, filename):
-        filepath = '/'.join((self.path, filename))
+        filepath = os.path.join(self.path, filename)
         if os.path.isfile(filepath):
             return FileSystemPhoto(filepath, os.path.getmtime(filepath))
 
     def create_item(self, filename, filetype, created, modified = None, filesize = None, title = None, description = None, rating = None, latitude = None, longitude = None):
-        filepath = '/'.join((self.path, filename))
+        filepath = os.path.join(self.path, filename)
         return FileSystemPhoto(filepath, created)
 
 class FileSystemPhoto(object):
