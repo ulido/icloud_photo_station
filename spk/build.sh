@@ -41,6 +41,9 @@ create_package_tgz() {
 	mkdir -p ${TGZ_DIR}/app
 	cp -av ../*.py $TGZ_DIR/app
 
+	mkdir -p ${TGZ_DIR}/app/icloudpd
+	cp -av ../icloudpd/*.py $TGZ_DIR/app/icloudpd
+
 	# ### create package.tgz $1: source_dir $2: dest_dir
 	pkg_make_package $TGZ_DIR "${PKG_DIR}"
 }

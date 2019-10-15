@@ -1,6 +1,6 @@
 package="icloud_photo_station"
-version="0.1.5"
-description="Synchronize iCloud Photos to Photo Station"
+version="0.2.0"
+description="Synchronize iCloud Photos to DSM"
 
 maintainer="Juho Kolehmainen"
 arch="noarch"

@@ -1,25 +1,33 @@
-# iCloud Photo Station
+# iCloud Photos Downloader for DSM
 
 * A command-line tool to download all your iCloud photos.
 * Works on Mac, Linux, Windows, and Synology DSM.
-* Run it multiple times to download any new photos.
-* Store photos either locally or [Synology NAS running Photo Station](https://www.synology.com/en-global/dsm/6.1/packages/PhotoStation).
-  * Sync photo metadata (ratings, title, description, coordinates) to PhotoStation
+* Run as a scheduled task in Synology to keep a local backup of your photos and videos.
 
-### Why?
-
-* I use the Photos app on my MacBook, set to "Optimize Mac Storage". It stores full-resolution images in iCloud, and only stores thumbnails on my computer until they are requested.
-* I want to download a copy of all my photos onto my Synology NAS, because:
-  * I already use Synology PhotoStation to organize all my post-processed DSLR photos and I want to have my mobile phone photos from iCloud at the same place.
-  * I like having a backup of all my photos on my own hard-drive.
-
-### Installation
+### Installation to Synology DSM
 
     # Clone the repo somewhere
     git clone https://github.com/skarppi/icloud_photo_station.git
     cd icloud_photo_station
 
 > If you need to install Python, see the [Requirements](#requirements) section for instructions.
+
+    # Create a SPK installation package containing virtualenv, python scripts and all necessary dependencies.
+
+    cd spk
+    sh build.sh
+
+Manually install resulting [icloud_photo_station-0.2.0.spk](https://github.com/skarppi/icloud_photo_station/releases/download/0.2.0/icloud_photo_station-0.2.0.spk) in your DSM `Package Station`. Now you can set up `User-defined script` into `Task Scheduler` and set up scheduling and notification emails for script output.
+
+    source /volume1/@appstore/icloud_photo_station/env/bin/activate
+    python /volume1/@appstore/icloud_photo_station/app/icloudpd.py \
+        --username '<YOUR ICLOUD USERNAME>' \
+        --password '<YOUR ICLOUD PASSWORD>' \
+        --auto-delete \
+        --until-found 10 \
+        --download output
+
+If your iCloud account has two-factor authentication enabled, SSH to Synology box and run the script manually first time in order to input the verification code.
 
 ## Usage
 
@@ -158,26 +166,6 @@ sudo apt-get update
 sudo apt-get install -y python
 ```
 
-### Synology DSM installation and synching photos to Photo Station
-
-    # Create a SPK installation package containing virtualenv, python scripts and all necessary dependencies.
-
-    cd spk
-    sh build.sh
-
-Manually install resulting [icloud_photo_station-0.1.5.spk](https://github.com/skarppi/icloud_photo_station/releases/download/0.1.5/icloud_photo_station-0.1.5.spk) in your DSM `Package Station`. Now you can set up `User-defined script` into `Task Scheduler` and set up scheduling and notification emails for script output.
-
-    source /volume1/@appstore/icloud_photo_station/env/bin/activate
-    python /volume1/@appstore/icloud_photo_station/app/download_photos.py \
-        --username '<YOUR ICLOUD USERNAME>' \
-        --password '<YOUR ICLOUD PASSWORD>' \
-        --download-videos \
-        --auto-delete \
-        --until-found 10 \
-        --photostation 'http://<YOUR PHOTOSTATION USERNAME>:<YOUR PHOTOSTATION PASSWORD>@localhost/photo/webapi/' root-album
-
-If your iCloud account has two-factor authentication enabled, SSH to Synology box and run the script manually first time in order to input the verification code.
-
 ## Authentication
 
 If your Apple account has two-factor authentication enabled,
@@ -193,23 +181,6 @@ You can receive an email notification when two-factor authentication expires by 
 or you can send to a different email address with `--notification-email`.
 
 If you want to send notification emails using your Gmail account, and you have enabled two-factor authentication, you will need to generate an App Password at https://myaccount.google.com/apppasswords
-
-### System Keyring
-
-You can store your password in the system keyring using the `icloud` command-line tool
-(installed with the `pyicloud` dependency):
-
-    $ icloud --username jappleseed@apple.com
-    ICloud Password for jappleseed@apple.com:
-    Save password in keyring? (y/N)
-
-If you have stored a password in the keyring, you will not be required to provide a password
-when running the script.
-
-If you would like to delete a password stored in your system keyring,
-you can clear a stored password using the `--delete-from-keyring` command-line option:
-
-    $ icloud --username jappleseed@apple.com --delete-from-keyring
 
 ## Error on first run
 
