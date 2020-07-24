@@ -22,6 +22,7 @@ from icloudpd.string_helpers import truncate_middle
 from icloudpd.autodelete import autodelete_photos
 from icloudpd.paths import local_download_path
 from icloudpd import exif_datetime
+from icloudpd.convert_heic import convert_heic
 # Must import the constants object so that we can mock values in tests.
 from icloudpd import constants
 
@@ -129,6 +130,11 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
     is_flag=True,
 )
 @click.option(
+    "--convert-heic",
+    help="Automatically convert pictures in HEIC format to jpeg (keeping the original too).",
+    is_flag=True,
+)
+@click.option(
     "--smtp-username",
     help="Your SMTP username, for sending email notifications when "
     "two-step authentication expires.",
@@ -204,6 +210,7 @@ def main(
         only_print_filenames,
         folder_structure,
         set_exif_datetime,
+        convert_heic,
         smtp_username,
         smtp_password,
         smtp_host,
@@ -477,6 +484,12 @@ def main(
                         else:
                             timestamp = time.mktime(created_date.timetuple())
                             os.utime(download_path, (timestamp, timestamp))
+
+                    if download_result and convert_heic and photo.filename.lower().endswith('.heic'):
+                        jpeg_path = convert_heic(download_path)
+                        if jpeg_path is not None:
+                            timestamp = time.mktime(created_date.timetuple())
+                            os.utime(jpeg_path, (timestamp, timestamp))
 
             # Also download the live photo if present
             if not skip_live_photos:

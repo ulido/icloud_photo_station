@@ -6,3 +6,5 @@ python_dateutil==2.6.1
 requests>=2.20.0
 tqdm==4.14
 piexif==1.1.2
+Pillow
+pyheif
