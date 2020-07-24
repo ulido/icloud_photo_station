@@ -20,7 +20,7 @@ def convert_heic(filename):
         heif_file.stride,
     )
 
-    jpeg_path = filename.upper().replace('.HEIC', '.JPG')
+    jpeg_path = filename.replace('.HEIC', '.JPG').replace('.heic', '.jpg')
     image.save(jpeg_path, 'JPEG', quality=95, exif=meta['Exif'])
 
     return jpeg_path
