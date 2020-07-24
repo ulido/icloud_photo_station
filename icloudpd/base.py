@@ -130,7 +130,7 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
     is_flag=True,
 )
 @click.option(
-    "--convert-heic",
+    "--convert-heic-images",
     help="Automatically convert pictures in HEIC format to jpeg (keeping the original too).",
     is_flag=True,
 )
@@ -210,7 +210,7 @@ def main(
         only_print_filenames,
         folder_structure,
         set_exif_datetime,
-        convert_heic,
+        convert_heic_images,
         smtp_username,
         smtp_password,
         smtp_host,
@@ -485,7 +485,7 @@ def main(
                             timestamp = time.mktime(created_date.timetuple())
                             os.utime(download_path, (timestamp, timestamp))
 
-                    if download_result and convert_heic and photo.filename.lower().endswith('.heic'):
+                    if download_result and convert_heic_images and photo.filename.lower().endswith('.heic'):
                         jpeg_path = convert_heic(download_path)
                         if jpeg_path is not None:
                             timestamp = time.mktime(created_date.timetuple())
